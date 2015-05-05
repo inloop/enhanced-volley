@@ -4,7 +4,7 @@
 
   <groupId>com.android.volley</groupId>
   <artifactId>volley</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0.9-inloop</version>
   <packaging>jar</packaging>
 
   <name>volley</name>
@@ -161,6 +161,19 @@
               </execution>
             </executions>
           </plugin>
+		  
+		  <plugin>
+			 <groupId>org.apache.maven.plugins</groupId>
+			 <artifactId>maven-source-plugin</artifactId>
+			 <executions>
+				<execution>
+				   <id>attach-sources</id>
+				   <goals>
+					  <goal>jar</goal>
+				   </goals>
+				</execution>
+			 </executions>
+         </plugin>
         </plugins>
       </build>
     </profile>
