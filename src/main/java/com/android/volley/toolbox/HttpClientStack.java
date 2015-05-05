@@ -17,8 +17,12 @@
 package com.android.volley.toolbox;
 
 import com.android.volley.AuthFailureError;
+import com.android.volley.ProgressListener;
 import com.android.volley.Request;
 import com.android.volley.Request.Method;
+import com.android.volley.toolbox.multipart.FilePart;
+import com.android.volley.toolbox.multipart.MultipartEntity;
+import com.android.volley.toolbox.multipart.StringPart;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -38,6 +42,7 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -50,6 +55,7 @@ import java.util.Map;
 public class HttpClientStack implements HttpStack {
     protected final HttpClient mClient;
 
+    private static final String CONTENT_TYPE_MULTIPART = "multipart/form-data; charset=%s; boundary=%s";
     private final static String HEADER_CONTENT_TYPE = "Content-Type";
 
     public HttpClientStack(HttpClient client) {
@@ -92,7 +98,7 @@ public class HttpClientStack implements HttpStack {
      */
     @SuppressWarnings("deprecation")
     /* protected */ static HttpUriRequest createHttpRequest(Request<?> request,
-            Map<String, String> additionalHeaders) throws AuthFailureError {
+            Map<String, String> additionalHeaders) throws AuthFailureError, IOException {
         switch (request.getMethod()) {
             case Method.DEPRECATED_GET_OR_POST: {
                 // This is the deprecated way that needs to be handled for backwards compatibility.
@@ -143,12 +149,49 @@ public class HttpClientStack implements HttpStack {
         }
     }
 
-    private static void setEntityIfNonEmptyBody(HttpEntityEnclosingRequestBase httpRequest,
-            Request<?> request) throws AuthFailureError {
-        byte[] body = request.getBody();
-        if (body != null) {
-            HttpEntity entity = new ByteArrayEntity(body);
-            httpRequest.setEntity(entity);
+    private static void setEntityIfNonEmptyBody(HttpEntityEnclosingRequestBase httpRequest, Request<?> request) throws IOException, AuthFailureError {
+
+        if (request instanceof MultiPartRequest) {
+            ProgressListener progressListener = null;
+            if (request instanceof ProgressListener) {
+                progressListener = (ProgressListener) request;
+            }
+            MultipartEntity multipartEntity = new MultipartEntity();
+            final String charset = ((MultiPartRequest<?>) request).getProtocolCharset();
+            httpRequest.addHeader(HEADER_CONTENT_TYPE, String.format(CONTENT_TYPE_MULTIPART, charset, multipartEntity.getBoundary()));
+
+            final Map<String, MultiPartRequest.MultiPartParam> multipartParams = ((MultiPartRequest<?>) request).getMultipartParams();
+            final Map<String, String> filesToUpload = ((MultiPartRequest<?>) request).getFilesToUpload();
+
+            for (String key : multipartParams.keySet()) {
+                multipartEntity.addPart(new StringPart(key, multipartParams.get(key).value));
+            }
+
+            for (String key : filesToUpload.keySet()) {
+                File file = new File(filesToUpload.get(key));
+
+                if (!file.exists()) {
+                    throw new IOException(String.format("File not found: %s", file.getAbsolutePath()));
+                }
+
+                if (file.isDirectory()) {
+                    throw new IOException(String.format("File is a directory: %s", file.getAbsolutePath()));
+                }
+
+                FilePart filePart = new FilePart(key, file, null, null);
+                filePart.setProgressListener(progressListener);
+
+                multipartEntity.addPart(filePart);
+            }
+            httpRequest.setEntity(multipartEntity);
+
+        } else {
+            httpRequest.addHeader(HEADER_CONTENT_TYPE, request.getBodyContentType());
+            byte[] body = request.getBody();
+            if (body != null) {
+                HttpEntity entity = new ByteArrayEntity(body);
+                httpRequest.setEntity(entity);
+            }
         }
     }
 
