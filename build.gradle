@@ -11,15 +11,15 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.14.+'
+        classpath 'com.android.tools.build:gradle:1.2.2'
     }
 }
 
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion = '21.1.0'
+    compileSdkVersion 22
+    buildToolsVersion = '21.1.2'
 }
 
 apply from: 'rules.gradle'
